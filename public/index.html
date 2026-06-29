@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Replacement System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --surface: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-fail: #ef4444;
+            --glow: 0 0 20px rgba(59, 130, 246, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 40%),
+                              radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 40%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1rem;
+        }
+
+        .header { text-align: center; margin-bottom: 2rem; animation: fadeDown 0.8s ease; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(to right, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+        .header p { color: var(--text-muted); font-size: 1rem; }
+
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            max-width: 1000px;
+            width: 100%;
+            animation: fadeIn 1s ease;
+        }
+
+        .panel {
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .input-row {
+            display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-bottom: 1.5rem;
+        }
+
+        .input-group label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
+        .input-group input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem 1rem;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        .input-group input:focus { border-color: var(--primary); box-shadow: var(--glow); }
+
+        .algo-selector { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .radio-btn { flex: 1; display: flex; align-items: center; gap: 0.8rem; cursor: pointer; padding: 0.8rem; border-radius: 10px; border: 1px solid var(--border); transition: all 0.2s ease; justify-content: center; }
+        .radio-btn:hover { background: rgba(255, 255, 255, 0.05); }
+        .radio-btn input { appearance: none; width: 18px; height: 18px; border: 2px solid var(--text-muted); border-radius: 50%; outline: none; transition: 0.2s; position: relative; }
+        .radio-btn input:checked { border-color: var(--primary); }
+        .radio-btn input:checked::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
+        .radio-btn span { color: var(--text-main); font-weight: 500; }
+
+        button.run-btn {
+            width: 100%; padding: 1rem; border: none; border-radius: 10px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+        button.run-btn:hover { transform: translateY(-2px); box-shadow: 0 15px 25px rgba(59, 130, 246, 0.4); }
+        button.run-btn:active { transform: translateY(1px); }
+
+        .results-area { min-height: 200px; display: flex; flex-direction: column; overflow-x: auto; }
+        .result-state-empty { text-align: center; color: var(--text-muted); margin: 3rem 0; }
+
+        .stats-bar {
+            display: flex; gap: 2rem; justify-content: center; margin-bottom: 2rem;
+            background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 15px; border: 1px solid var(--border);
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
+        .stat-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* CRT Diagram grid styling */
+        .crt-table {
+            border-collapse: separate; border-spacing: 4px;
+            width: max-content; margin: 0 auto;
+        }
+        .crt-table th, .crt-table td {
+            width: 45px; height: 45px; text-align: center; vertical-align: middle;
+            border-radius: 8px; font-weight: 500; font-size: 1.1rem;
+        }
+        .crt-header {
+            background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa; font-weight: 700;
+        }
+        .frame-cell {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+        .frame-empty { color: transparent; }
+        
+        .status-cell {
+            font-size: 0.9rem; font-weight: 700; border-radius: 8px;
+        }
+        .status-hit { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border: 1px solid rgba(16, 185, 129, 0.2); }
+        .status-fault { background: rgba(239, 68, 68, 0.1); color: var(--accent-fail); border: 1px solid rgba(239, 68, 68, 0.2); }
+
+        .col-header { padding-right: 15px; text-align: right; font-size: 0.9rem; color: var(--text-muted); border: none; background: transparent; }
+
+        @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .animated-cell {
+            animation: popIn 0.3s ease-out forwards;
+        }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        @media (max-width: 800px) {
+            .input-row { grid-template-columns: 1fr; }
+            .algo-selector { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Page Replacement</h1>
+        <p>Simulation diagram for FIFO, LRU, and Optimal algorithms.</p>
+    </div>
+
+    <div class="dashboard">
+        <div class="panel">
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="frames">Number of Frames</label>
+                    <input type="number" id="frames" value="3" min="1" max="10">
+                </div>
+
+                <div class="input-group">
+                    <label for="referenceString">Reference String</label>
+                    <input type="text" id="referenceString" value="7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2" placeholder="e.g. 7, 0, 1, 2, 0...">
+                </div>
+            </div>
+
+            <div class="algo-selector">
+                <label class="radio-btn">
+                    <input type="radio" name="algorithm" value="fifo" checked>
+                    <span>FIFO Algorithm</span>
+                </label>
+                <label class="radio-btn">
+                    <input type="radio" name="algorithm" value="lru">
+                    <span>LRU Algorithm</span>
+                </label>
+                <label class="radio-btn">
+                    <input type="radio" name="algorithm" value="optimal">
+                    <span>Optimal Algorithm</span>
+                </label>
+            </div>
+
+            <button class="run-btn" onclick="executeAlgorithm()">Submit</button>
+        </div>
+
+        <div class="panel results-area">
+            <div id="results-container" class="result-state-empty">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5; margin-bottom: 1rem;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                <h2>Ready for Simulation</h2>
+                <p style="margin-top: 0.5rem; font-size:0.9rem;">Input frames and reference string to see the chart</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function executeAlgorithm() {
+            const rawFrames = document.getElementById('frames').value;
+            const rawRefString = document.getElementById('referenceString').value;
+            const algorithm = document.querySelector('input[name="algorithm"]:checked').value;
+            const btn = document.querySelector('.run-btn');
+
+            const frames = parseInt(rawFrames);
+            if(isNaN(frames) || frames <= 0) {
+                alert("Please enter a valid number of frames.");
+                return;
+            }
+
+            const referenceString = rawRefString.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+            if(referenceString.length === 0) {
+                alert("Please provide a valid reference string.");
+                return;
+            }
+
+            btn.innerText = "Simulating...";
+            btn.style.opacity = 0.8;
+
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ algorithm, frames, referenceString })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('results-container').innerHTML = '<p style="color:red; text-align:center;">Error: ' + data.error + '</p>';
+                    return;
+                }
+
+                renderResults(data, frames, referenceString);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('results-container').innerHTML = '<p style="color:red; text-align:center;">Failed to connect to server.</p>';
+            } finally {
+                btn.innerText = "Submit";
+                btn.style.opacity = 1;
+            }
+        }
+
+        function renderResults(data, numFrames, refString) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = ''; 
+            
+            // Build Stats
+            const totalHits = refString.length - data.totalFaults;
+            const hitRatio = ((totalHits / refString.length) * 100).toFixed(1) + '%';
+            
+            const statsBar = document.createElement('div');
+            statsBar.className = 'stats-bar';
+            statsBar.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--accent-fail)">${data.totalFaults}</div>
+                    <div class="stat-label">Total Faults</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--accent-success)">${totalHits}</div>
+                    <div class="stat-label">Total Hits</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #60a5fa">${hitRatio}</div>
+                    <div class="stat-label">Hit Ratio</div>
+                </div>
+            `;
+            container.appendChild(statsBar);
+
+            // Build CRT Table Diagram
+            const table = document.createElement('table');
+            table.className = 'crt-table';
+            
+            // 1) Reference String Header Row
+            const trReq = document.createElement('tr');
+            const thReqTitle = document.createElement('th');
+            thReqTitle.className = 'col-header';
+            thReqTitle.innerText = "Page";
+            trReq.appendChild(thReqTitle);
+            
+            data.steps.forEach((step, i) => {
+                const th = document.createElement('th');
+                th.className = 'crt-header';
+                th.innerHTML = `<span style="animation-delay: ${i*0.05}s" class="animated-cell" style="display:inline-block">${step.page}</span>`;
+                trReq.appendChild(th);
+            });
+            table.appendChild(trReq);
+
+            // 2) Frame Rows
+            for(let f = 0; f < numFrames; f++) {
+                const trFrame = document.createElement('tr');
+                const tdTitle = document.createElement('td');
+                tdTitle.className = 'col-header';
+                tdTitle.innerText = "F" + (f+1);
+                trFrame.appendChild(tdTitle);
+
+                data.steps.forEach((step, i) => {
+                    const td = document.createElement('td');
+                    td.className = 'frame-cell';
+                    if (step.frames[f] !== null) {
+                        td.innerHTML = `<span style="animation-delay: ${(i*0.05) + 0.1}s" class="animated-cell" style="display:inline-block">${step.frames[f]}</span>`;
+                    } else {
+                        td.classList.add('frame-empty');
+                        td.innerText = "-";
+                    }
+                    trFrame.appendChild(td);
+                });
+                table.appendChild(trFrame);
+            }
+
+            // 3) HIT / FAULT Status Row
+            const trStatus = document.createElement('tr');
+            const tdStatusTitle = document.createElement('td');
+            tdStatusTitle.className = 'col-header';
+            tdStatusTitle.innerText = "Status";
+            trStatus.appendChild(tdStatusTitle);
+
+            data.steps.forEach((step, i) => {
+                const td = document.createElement('td');
+                const isHit = step.hit;
+                td.className = 'status-cell ' + (isHit ? 'status-hit' : 'status-fault');
+                td.innerHTML = `<span style="animation-delay: ${(i*0.05) + 0.2}s" class="animated-cell" style="display:inline-block">${isHit ? 'H' : 'F'}</span>`;
+                trStatus.appendChild(td);
+            });
+            table.appendChild(trStatus);
+
+            container.appendChild(table);
+        }
+    </script>
+</body>
+</html>
